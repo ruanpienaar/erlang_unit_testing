@@ -19,6 +19,11 @@
     wait_for_next_value/3
 ]).
 
+% Running Applications
+-export([
+    stop_extra_applications/0
+]).
+
 %% @doc This will start the distribution ( shortnames , longnames ) with the supplied Nodename.
 %% @end
 
@@ -102,3 +107,41 @@ wait_for_next_value(Times, F, Expected) ->
         false ->
             NextValue
     end.
+
+    %trace([
+    %   {goanna_db}
+    %]),
+
+    %trace([
+    %   {goanna_db,
+    %       [
+    %           lookup,
+    %           store,
+    %           delete_child_id_tracelist,
+    %           delete_child_id_trace_pattern
+    %       ]
+    %   }
+    %]),
+% trace(L) ->
+%     start_dbg(),
+%     do_trace(L).
+
+% do_trace(L) when is_list(L) ->
+%     [ do_trace(I) || I <- L ];
+% do_trace(M) when is_atom(M) ->
+%     dbg:tpl(M, cx);
+% do_trace({M, Functions}) when is_list(Functions) ->
+%     [ do_trace({M, F}) || F <- Functions ];
+% do_trace({M, Function}) when is_atom(Function) ->
+%     dbg:tpl(M, Function, cx).
+
+% start_dbg() ->
+%     dbg:tracer(),
+%     dbg:p(all, call).
+
+-spec stop_extra_applications() -> list(ok).
+stop_extra_applications() ->
+    [ ok = application:stop(App) ||
+        {App,_ErtsVsn,_Vsn}
+        <- application:which_applications(), App /= kernel andalso App /= stdlib
+    ].
