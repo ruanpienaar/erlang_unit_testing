@@ -10,7 +10,7 @@
 
 % Test slave nodes
 -export([
-    setup_slaves/1,
+    slaves_setup/1,
     cleanup_slaves/1
 ]).
 
@@ -53,8 +53,8 @@ distrib_already_started(_) ->
 stop_distrib() ->
     net_kernel:stop().
 
--spec setup_slaves(list(tuple())) -> list(node()).
-setup_slaves(Slaves) when is_list(Slaves) ->
+-spec slaves_setup(list(tuple())) -> list(node()).
+slaves_setup(Slaves) when is_list(Slaves) ->
     lists:map(
         fun({H})       -> slave_node_start(H);
            ({H, N})    -> slave_node_start(H, N);
