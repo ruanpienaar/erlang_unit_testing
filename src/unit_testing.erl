@@ -10,7 +10,7 @@
 %% @end
 -spec start_distrib( node(), shortnames | longnames)
         -> {ok, ActualNodeName::atom} | {error, Reason::term()}.
-start_distrib(NodeName, NodeType) ->
+start_distrib(NodeName, NodeType) when is_atom(NodeName) ->
     case node() of
         'nonode@nohost' ->
             [] = os:cmd("epmd -daemon"),
