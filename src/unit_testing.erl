@@ -69,7 +69,7 @@ slave_node_start(Host, Name) ->
 -spec slave_node_start(inet:hostname(), atom() | string(), string()) -> node().
 slave_node_start(Host, Name, Args) ->
     {ok, SlaveName} = slave:start(Host, Name, Args),
-    SlaveName.s
+    SlaveName.
 
 -spec cleanup_slaves(list(node())) -> boolean().
 cleanup_slaves(Slaves) ->
