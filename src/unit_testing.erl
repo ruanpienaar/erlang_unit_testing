@@ -14,6 +14,11 @@
     cleanup_slaves/1
 ]).
 
+% Async code testing
+-export([
+    wait_for_next_value/3
+]).
+
 %% @doc This will start the distribution ( shortnames , longnames ) with the supplied Nodename.
 %% @end
 
@@ -86,3 +91,14 @@ cleanup_slaves(Slaves) ->
         end
     end, Slaves).
 
+wait_for_next_value(0, _, _) ->
+    {error, no_answer};
+wait_for_next_value(Times, F, Expected) ->
+    case (NextValue = F()) == Expected of
+        true ->
+            timer:sleep(25),
+            % ?debugFmt("..... KEEP ~p CALLING ~p ......~n", [Times, nodes()]),
+            wait_for_next_value(Times-1, F, Expected);
+        false ->
+            NextValue
+    end.
