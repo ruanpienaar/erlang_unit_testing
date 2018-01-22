@@ -32,9 +32,21 @@ setup_slaves(Slaves) when is_list(Slaves) ->
            ({H, N, A}) -> slave_node_start(H, N, A)
         end, Slaves).
 
--spec cleanup_slaves(list(node())) -> ok.
+-spec cleanup_slaves(list(node())) -> boolean().
 cleanup_slaves(Slaves) ->
-    [ ok = slave:stop(SlaveNodeName) || SlaveNodeName <- Slaves ].
+    % [ ok = slave:stop(SlaveNodeName) || SlaveNodeName <- Slaves ].
+    lists:all(fun(SlaveNodeName) ->
+        case slave:stop(SlaveNodeName) of
+            ok ->
+                true;
+            Reason ->
+                error_logger:error_msg(
+                    "Could not stop slave ~p Reason ~p",
+                    [SlaveNodeName, Reason]
+                ),
+                false
+        end
+    end, Slaves).
 
 -spec slave_node_start(inet:hostname()) -> node().
 slave_node_start(Host) ->
