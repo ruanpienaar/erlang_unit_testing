@@ -2,75 +2,31 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
-% I think Unit tests should not have to deal with Erlang distribution...
-% Erlang Distribution
-% -export([
-%     start_distrib/1,
-%     start_distrib/2,
-%     start_distrib/3,
-%     stop_distrib/0
-% ]).
-
-% I think Unit tests should not have to deal with slaves...
-% % Test slave nodes
-% -export([
-%     slaves_setup/1,
-%     cleanup_slaves/1
-% ]).
-
 % Async code testing
 -export([
+    wait_for_match/3,
+    wait_for_match/4,
     wait_for_next_value/3
 ]).
-
-% I think Unit tests should not have to deal with applications started/stopped
-% Running Applications
-% -export([
-%     stop_extra_applications/0
-% ]).
 
 % Eunit test utilities
 -export([
     try_test_fun/1
 ]).
 
-% -spec slaves_setup(list(tuple())) -> list(node()).
-% slaves_setup(Slaves) when is_list(Slaves) ->
-%     lists:map(
-%         fun({H})       -> slave_node_start(H);
-%            ({H, N})    -> slave_node_start(H, N);
-%            ({H, N, A}) -> slave_node_start(H, N, A)
-%         end, Slaves).
+wait_for_match(Times, F, Match) ->
+    wait_for_match(Times, F, Match, 25).
 
-% -spec slave_node_start(inet:hostname()) -> node().
-% slave_node_start(Host) ->
-%     {ok, SlaveName} = slave:start(Host),
-%     SlaveName.
-
-% -spec slave_node_start(inet:hostname(), atom() | string()) -> node().
-% slave_node_start(Host, Name) ->
-%     {ok, SlaveName} = slave:start(Host, Name),
-%     SlaveName.
-
-% -spec slave_node_start(inet:hostname(), atom() | string(), string()) -> node().
-% slave_node_start(Host, Name, Args) ->
-%     {ok, SlaveName} = slave:start(Host, Name, Args),
-%     SlaveName.
-
-% -spec cleanup_slaves(list(node())) -> boolean().
-% cleanup_slaves(Slaves) ->
-%     lists:all(fun(SlaveNodeName) ->
-%         case slave:stop(SlaveNodeName) of
-%             ok ->
-%                 true;
-%             Reason ->
-%                 error_logger:error_msg(
-%                     "Could not stop slave ~p Reason ~p",
-%                     [SlaveNodeName, Reason]
-%                 ),
-%                 false
-%         end
-%     end, Slaves).
+wait_for_match(0, _, _, _) ->
+    {error, no_answer};
+wait_for_match(Times, F, Match, Sleep) ->
+    case F() of
+        A when A == Match ->
+            ok;
+        _ ->
+            timer:sleep(Sleep),
+            wait_for_match(Times-1, F, Match, Sleep)
+    end.
 
 wait_for_next_value(0, _, _) ->
     {error, no_answer};
@@ -114,13 +70,6 @@ wait_for_next_value(Times, F, Expected) ->
 % start_dbg() ->
 %     dbg:tracer(),
 %     dbg:p(all, call).
-
-% -spec stop_extra_applications() -> list(ok).
-% stop_extra_applications() ->
-%     [ ok = application:stop(App) ||
-%         {App,_ErtsVsn,_Vsn}
-%         <- application:which_applications(), App /= kernel andalso App /= stdlib
-%     ].
 
 try_test_fun(TestFun) ->
     try
