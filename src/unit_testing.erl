@@ -23,6 +23,13 @@
     % foreach
 ]).
 
+% mock ( Using meck )
+-export([
+    new_mock/2,
+    mock_expect/3,
+    mock_expect/4
+]).
+
 % @doc mocsk :: {module, [options], [expects]}
 
 % {setup, Setup, Tests | Instantiator}
@@ -62,12 +69,13 @@ setup(Setup, Cleanup, Tests, Mocks, StrickMocks) when is_function(Setup, 0) anda
         lists:foreach(fun({Mod, ModOpts, Expectations}) when is_atom(Mod) andalso
                                                              is_list(ModOpts) andalso
                                                              is_list(Expectations) ->
-            ok = meck:new(Mod, ModOpts),
+            % ok = meck:new(Mod, ModOpts),
+            ok = new_mock(Mod, ModOpts),
             lists:foreach(
                 fun({Function, Arity, Response}) ->
-                    ok = meck:expect(Mod, Function, Arity, Response);
+                    mock_expect(Mod, Function, Arity, Response);
                    ({Function, ExpectFun}) when is_function(ExpectFun) ->
-                    ok = meck:expect(Mod, Function, ExpectFun)
+                    mock_expect(Mod, Function, ExpectFun)
                 end
             , Expectations)
         end, Mocks),
@@ -90,11 +98,12 @@ setup(Setup, Cleanup, Tests, Mocks, StrickMocks) when is_function(Setup, 0) anda
                     is_list(meck:unload())
                 )
         end,
+        erase(), % Delete all the mods from the eunit process.
         % Cleanup links
         {links, Links} = erlang:process_info(self(), links),
         % ?debugFmt("LINKS ~p", [Links]),
         lists:foreach(fun(Pid) ->
-            D = erlang:process_info(Pid, [current_function, registered_name]),
+            D = erlang:process_info(Pid, [current_function, links]),
             % ?debugFmt("LINK Details ~p", [D]),
             case D of
                 [{current_function, {eunit_proc, _, _}}, _] ->
@@ -113,10 +122,47 @@ setup(Setup, Cleanup, Tests, Mocks, StrickMocks) when is_function(Setup, 0) anda
      Tests
     }.
 
+% TODO:
 % {foreach, Where, Setup, Cleanup, [Tests | Instantiator]}
 % {foreach, Setup, Cleanup, [Tests | Instantiator]}
 % {foreach, Where, Setup, [Tests | Instantiator]}
 % {foreach, Setup, [Tests | Instantiator]}
+
+new_mock(Mod, ModOpts) ->
+    ok = meck:new(Mod, ModOpts),
+    save_mock(Mod, ModOpts),
+    ok.
+
+save_mock(Mod, ModOpts) ->
+    true = ets_insert({Mod, ModOpts}).
+
+ets_insert(Rec) ->
+    case ets:info(?MODULE) of
+        undefined ->
+            ?MODULE = ets:new(?MODULE, [public, named_table, ordered_set]);
+        _ ->
+            ok
+    end,
+    ets:insert(?MODULE, Rec).
+
+mock_expect(Mod, Function, ExpectFun) ->
+    case get_mock(Mod) of
+        [] ->
+            throw({module, Mod, needs_meck_new_first});
+        _ ->
+            ok = meck:expect(Mod, Function, ExpectFun)
+    end.
+
+mock_expect(Mod, Function, Arity, Response) ->
+    case get_mock(Mod) of
+        [] ->
+            throw({module, Mod, needs_meck_new_first});
+        _ ->
+            ok = meck:expect(Mod, Function, Arity, Response)
+    end.
+
+get_mock(Mod) ->
+    ets:lookup(?MODULE, Mod).
 
 wait_for_match(Times, F, Match) ->
     wait_for_match(Times, F, Match, 25).
