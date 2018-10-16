@@ -19,8 +19,11 @@
     setup/2,
     setup/3,
     setup/4,
-    setup/5
-    % foreach
+    setup/5,
+    foreach/2,
+    foreach/3,
+    foreach/4,
+    foreach/5
 ]).
 
 % mock ( Using meck )
@@ -30,7 +33,8 @@
     mock_expect/4
 ]).
 
-% @doc mocsk :: {module, [options], [expects]}
+%% @doc mocks :: {module, [options], [expects()]}
+%% @end expects() :: {Function, Arity, Response} | {Function, ExpectFun}
 
 % {setup, Setup, Tests | Instantiator}
 % {setup, Setup, Cleanup, Tests | Instantiator}
@@ -49,7 +53,7 @@ setup(Setup, Instantiator) when is_function(Setup, 0) andalso
 setup(Setup, Cleanup, Tests) when is_function(Setup, 0) andalso
                                   is_function(Cleanup, 1) andalso
                                   is_list(Tests) ->
-    ok.
+    {setup, Setup, Cleanup, Tests}.
 
 setup(Setup, Cleanup, Tests, Mocks) when is_function(Setup, 0) andalso
                                          is_function(Cleanup, 1) andalso
@@ -61,6 +65,8 @@ setup(Setup, Cleanup, Tests, Mocks, StrickMocks) when is_function(Setup, 0) anda
                                                             is_function(Cleanup, 1) andalso
                                                             is_list(Tests) andalso
                                                             is_list(Mocks) ->
+    %% TODO: -get list of app's and env's 
+    %%       -get system state, and restore once test done
     MockMods = lists:sort(proplists:get_keys(Mocks)),
     %?debugFmt("MockMods ~p",[MockMods]),
     {setup,
@@ -123,10 +129,86 @@ setup(Setup, Cleanup, Tests, Mocks, StrickMocks) when is_function(Setup, 0) anda
     }.
 
 % TODO:
-% {foreach, Where, Setup, Cleanup, [Tests | Instantiator]}
-% {foreach, Setup, Cleanup, [Tests | Instantiator]}
-% {foreach, Where, Setup, [Tests | Instantiator]}
 % {foreach, Setup, [Tests | Instantiator]}
+% {foreach, Setup, Cleanup, [Tests | Instantiator]}
+% {foreach, Where, Setup, Cleanup, [Tests | Instantiator]}
+% {foreach, Where, Setup, [Tests | Instantiator]}
+
+foreach(Setup, Tests) when is_function(Setup, 0),
+                           is_list(Tests) ->
+    {foreach, Setup, Tests}.
+
+foreach(Setup, Cleanup, Tests) when is_function(Setup, 0),
+                                    is_function(Cleanup, 1),
+                                    is_list(Tests) ->
+    {foreach, Setup, Tests}.
+
+foreach(Setup, Cleanup, Tests, Mocks) ->
+    foreach(Setup, Cleanup, Tests, Mocks, false).
+
+%% TODO: simplify this with setup/5
+foreach(Setup, Cleanup, Tests, Mocks, StrickMocks) ->
+    %% TODO: -get list of app's and env's 
+    %%       -get system state, and restore once test done
+    MockMods = lists:sort(proplists:get_keys(Mocks)),
+    {foreach,
+     fun() ->
+        % Apply mocks
+        lists:foreach(fun({Mod, ModOpts, Expectations}) when is_atom(Mod) andalso
+                                                             is_list(ModOpts) andalso
+                                                             is_list(Expectations) ->
+            % ok = meck:new(Mod, ModOpts),
+            ok = new_mock(Mod, ModOpts),
+            lists:foreach(
+                fun({Function, Arity, Response}) ->
+                    mock_expect(Mod, Function, Arity, Response);
+                   ({Function, ExpectFun}) when is_function(ExpectFun) ->
+                    mock_expect(Mod, Function, ExpectFun)
+                end
+            , Expectations)
+        end, Mocks),
+        Setup()
+     end,
+     fun(SetupResponse) ->
+        % Run cleanup
+        Cleanup(SetupResponse),
+        % Cleanup mocks
+        case StrickMocks of
+            true ->
+                % ?debugFmt("Strick meck unload", []),
+                ?assertEqual(
+                    MockMods,
+                    lists:sort(meck:unload())
+                );
+            false ->
+                % ?debugFmt("NON Strick meck unload", []),
+                ?assert(
+                    is_list(meck:unload())
+                )
+        end,
+        erase(), % Delete all the mods from the eunit process.
+        % Cleanup links
+        {links, Links} = erlang:process_info(self(), links),
+        % ?debugFmt("LINKS ~p", [Links]),
+        lists:foreach(fun(Pid) ->
+            D = erlang:process_info(Pid, [current_function, links]),
+            % ?debugFmt("LINK Details ~p", [D]),
+            case D of
+                [{current_function, {eunit_proc, _, _}}, _] ->
+                    ok;
+                X ->
+                    ?debugFmt(
+                        " === REMOVE LINK === ~n~p~n",
+                        [X]
+                    ),
+                    true = erlang:unlink(Pid),
+                    true = erlang:exit(Pid, kill)
+            end
+        end, Links)
+     end,
+     % List of tests
+     Tests
+    }.
 
 new_mock(Mod, ModOpts) ->
     ok = meck:new(Mod, ModOpts),
