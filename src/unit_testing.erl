@@ -308,7 +308,7 @@ try_test_fun(TestFun) ->
         TestFun(),
         true
     catch
-        C:E ->
-            ?debugFmt("test failed: ~p",[{C,E,erlang:get_stacktrace()}]),
+        C:E:S ->
+            ?debugFmt("test failed: ~p",[{C, E, S}]),
             false
     end.

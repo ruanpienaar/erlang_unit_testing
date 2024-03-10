@@ -1,6 +1,6 @@
 {application, unit_testing,
  [
-  {description, ""},
+  {description, "Generic abstracitons for Erlang unit testing"},
   {vsn, "1"},
   {registered, []},
   {applications, [
