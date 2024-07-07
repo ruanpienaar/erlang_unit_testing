@@ -1,4 +1,4 @@
-{application, unit_testing,
+{application, erlang_unit_testing,
  [
   {description, "Generic abstracitons for Erlang unit testing"},
   {vsn, "1"},
